@@ -1,0 +1,82 @@
+= R E A D M E : P Y M A L T E G O =
+===================================
+
+PyMaltego is a framework for developing Maltego Transforms. It supplies a rich
+environment for creating Transforms, as well as basic client/server
+functionality. 
+
+PyMaltego is a python module which provides facilities for creating and
+interacting with Maltego Transforms. The module provides both a WSGI compliant
+server application, and also client utilities.
+
+The PyMaltego module is primarily designed for creating new Transforms,
+however it is equally capable of querying remote Transforms. Using PyMaltego,
+it is possible to easily create Transform middleware.
+
+Transforms are manipulations which convert one type of Entity into another.
+A transform application is a collection of one or more transforms made
+available over an HTTP/XML interface.
+
+The transform writer can create a new type of transform by inheriting from the
+base transform.Transform class and overwriting the 'transform' method. The
+__init__ method must be overwritten to provide the required transform
+attributes, namely:
+    display name
+    author
+    version
+    input entity
+    output entities
+
+An example DNS name to IP address transform is given below:
+
+# ;-----------------------
+import socket
+import maltego
+from maltego import entity
+
+class DNStoIP(maltego.Transform):
+    def __init__(self):
+        super(DNStoIP, self).__init__(
+            author = "Example <example@example.com>",
+            displayname = "DNS name to IP address",
+            version = "1.0",
+            input = entity.DNSName,
+            output = entity.IPAddress # optionally, can be a list()
+        )
+    
+    def transform(self, entities, limit=None, key=None, fields=None):
+        ret_entities = []
+        for dns in entities:
+            ip = socket.gethostbyname( dns.value )
+            ipaddr = entity.IPAddress( ip )
+            ret_entities.append( ipaddr )
+        return ret_entities
+# ;-----------------------
+
+To create a transform application, then base class TransformApplication must
+be made available via a WSGI interface. This supports fastcgi, mod_python, and
+all the python web frameworks. Most simple applications can just use the wsgi
+server included with Python 2.5. 
+
+The transform writer must register their transforms with the transform
+application to make them available to the application. To continue our example
+from above:
+
+# ;-----------------------
+app = maltego.TransformApplication()
+app += DNStoIP()
+# or: app.register( DNStoIP() )
+
+server = wsgi.make_server('localhost', 9999, app)
+
+server.handle_once()
+# ;-----------------------
+
+=====================================
+=[ SETUP: With mod_wsgi and Apache ]=
+=====================================
+
+The examples/ directory contains a 'transform_app.py' which can be used as a
+skeleton for building a custom Transform application. Simply replace the
+existing Transform DNSToIPAddress, with your own custom transform
+

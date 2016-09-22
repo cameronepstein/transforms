@@ -1,0 +1,103 @@
+= I N S T A L L A T I O N =
+===========================
+
+The PyMaltego framework Transform server is a WSGI compliant application which
+can be deployed on any WSGI server. Additionally, a small perl wrapper can be
+used with the example transform_app.py to emulate a WSGI environment.
+
+The PyMaltego framework provides a WSGI compliant application for deployment
+on a web server. It is possible to use this application with any WSGI
+conforming web framework, such as CherryPy, web.py, etc. etc. 
+
+This file contains information on how to configure and install the PyMaltego
+application for serving transforms.
+
+It is recommended that the mod_wsgi Apache module be used for loading and
+running the PyMaltego transform application.
+
+= P E R L + P Y T H O N   C G I - W R A P P E R =
+=================================================
+
+A Perl cgi script is provided which can act as a basic wrapper to pass the
+information onto the Transform application. Currently, when the transform_app
+is run as a cgi script, it will emulate a simplistic WSGI environment and then
+run the TransformApplication. 
+
+Simply place the transfrom_app.py and the Maltego_wrapper.pl into the cgi-bin
+directory. The Maltego_wrapper.pl script will invoke the transform_app.py with
+the correct arguments.
+
+= ON OSX 10.5 =
+===============
+
+1. Download and install the mod_wsgi Apache module. http://www.modwsgi.org/
+
+2. Edit the /etc/apache2/httpd.conf
+   After the last of the LoadModule commands, add the following:
+
+   LoadModule wsgi_module libexec/apache2/mod_wsgi.so
+
+3. When you restart Apache, you should see a line like the following in the
+   /var/log/apache2/error_log
+
+   Apache/2.2.6 (Unix) mod_ssl/2.2.6 OpenSSL/0.9.7l DAV/2 mod_wsgi/1.2 Python/2.5.1 configured -- resuming normal operations
+
+4. Configure Apache to use the transform application. If your application is
+   located in /usr/local/transforms/transform_app.py, then include the
+   following:
+
+   WSGIScriptAlias /transform_app.py /usr/local/transforms/transform_app.py
+
+5. The transform application is now available on the Apache server.
+
+
+In order to enable mod_wsgi to locate the Transform application, the
+Application object instance MUST be named 'application'. An example:
+
+# ;--------------------------------------------------------------------------
+#!/usr/bin/env python
+
+import maltego
+import socket
+
+class DNSNameToIPAddress(maltego.Transform):
+    """Converts a DNSName to an IPAddress via DNS queries"""
+    def __init__(self):
+        super(DNSNameToIPAddress, self).__init__(
+            displayname = 'DNS to IP address',
+            author = 'thegrugq <thegrugq@gmail.com>',
+            input = maltego.DNSName,
+            output = maltego.IPAddress,
+            version = "1.0 build 18b"
+        )
+    def transform(self, entities, key=None, fields={}, limits=(None, None)):
+        ret_entities = []
+
+        for dnsname in entities:
+            ipaddr = socket.gethostbyname( dnsname.value )
+            ret_entities.append( maltego.IPAddress( ipaddr ) )
+        return ret_entities
+
+# the Application object MUST be named 'application'
+application = maltego.Application()
+
+application.register( DNSNameToIPAddress() )
+
+# ;--------------------------------------------------------------------------
+
+XXX IDEA XXX
+
+Generic application wrapper script which is called, transform.py, lives in a
+directory with all the transform scripts. On start up, scans directory,
+imports all the scripts, then for each subclass of transform.Transform, it
+registers one instance object.
+
+Then deployment becomes: set up directory to house the transform application.
+Drop in transform scripts... done. No script hacking required.
+
+XXX IDEA XXX
+
+Create a transform_app which opens a configured directory (e.g.
+/usr/local/share/transforms/) and imports all the python modules in there...
+then a new transform can just be dropped into the directory and it will
+instantly appear in the Transforms list. Spiffy!
